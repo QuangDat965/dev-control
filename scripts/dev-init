@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Kiểm tra tham số
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 root@IP PORT"
+  exit 1
+fi
+
+TARGET="$1"
+PORT="$2"
+
+# Lấy đường dẫn thư mục scripts
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Kiểm tra port
+if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( 10#$PORT < 1 || 10#$PORT > 65535 )); then
+  echo "Invalid SSH port: $PORT"
+  exit 1
+fi
+
+echo "=== Connecting to $TARGET:$PORT and deploying bootstrap ==="
+
+# Truyền và chạy trong cùng một phiên SSH để chỉ xác thực một lần.
+tar -C "$(dirname "$SCRIPT_DIR")" -czf - \
+  configs scripts |
+ssh -p "$PORT" -o ConnectTimeout=10 "$TARGET" \
+  "mkdir -p /root/dev-bootstrap && tar -xzf - -C /root/dev-bootstrap && bash /root/dev-bootstrap/scripts/bootstrap.sh"
+
+echo "=== VPS setup completed ==="
